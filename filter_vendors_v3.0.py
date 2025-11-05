@@ -1,6 +1,6 @@
 # =========================================================
 # filter_vendors_v3.0.py
-# Hybrid version combining Matt's logic + your stable design
+# Hybrid version with Matt’s logic + automatic COCID/HCIS
 # =========================================================
 
 import pandas as pd
@@ -13,9 +13,8 @@ from openpyxl.styles import Font, Alignment
 # =====================
 unfiltered_folder = r'C:\Users\joc4126\Desktop\CSV_File\Unfiltered'
 filtered_folder = r'C:\Users\joc4126\Desktop\CSV_File\Filtered'
-crosswalk_path = r'C:\Users\joc4126\Desktop\CSV_File\CSV_File\Files_To_Import\Data_Type_Crosswalk_Final.xlsx'
-faciliy_path = r'C:\Users\joc4126\Desktop\CSV_File\CSV_File\Files_To_Import\Locations.xlsx'
-connection_path = r'C:\Users\joc4126\Desktop\CSV_File\CSV_File\Files_To_Import\Connection_Type_Crosswalk.xlsx'
+crosswalk_path = r'C:\Users\joc4126\Desktop\CSV_File\Files_To_Import\Data_Type_Crosswalk_Final.xlsx'
+connection_path = r'C:\Users\joc4126\Desktop\CSV_File\Files_To_Import\Connection_Type_Crosswalk.xlsx'
 
 os.makedirs(filtered_folder, exist_ok=True)
 
@@ -23,11 +22,9 @@ os.makedirs(filtered_folder, exist_ok=True)
 # 📖 Read reference files
 # =====================
 crosswalk_df = pd.read_excel(crosswalk_path, usecols="A:F")
-facility_df = pd.read_excel(faciliy_path, usecols="B:C")
 connection_df = pd.read_excel(connection_path, usecols="A:C")
 
 crosswalk_df.columns = crosswalk_df.columns.str.strip()
-facility_df.columns = facility_df.columns.str.strip()
 connection_df.columns = connection_df.columns.str.strip()
 
 # Mapping dictionaries
@@ -35,12 +32,12 @@ message_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 4]))  
 data_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 5]))     # Col F
 expanse_mnemonic_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 2]))  # Col C
 
-facility_cocid_map = dict(zip(facility_df.iloc[:, 0], facility_df.iloc[:, 1]))  # Col B->C
 connection_type_map = dict(zip(connection_df.iloc[:, 0], connection_df.iloc[:, 1]))  # Col A->B
 contract_map = dict(zip(connection_df.iloc[:, 0], connection_df.iloc[:, 2]))         # Col A->C
 
 wave_iteration = "Wave 2D"
 division = "Gulf Coast Division"
+default_hcis = "Meditech Expanse"
 
 # =====================
 # 🧠 Helper Functions
@@ -55,17 +52,16 @@ def get_data_flow(row):
         return "Outbound"
     return "Inbound"
 
-def get_interface(row):
-    data_type = data_type_map.get(row.get('ib_datatype', ''), '')
-    direction = get_data_flow(row)
-    if direction == 'Outbound':
-        return f"{row.get('ob_vendor_name', '')} ({row.get('Vendor', '')}) - {data_type}"
-    else:
-        return f"{row.get('ib_vendor_name', '')} ({row.get('Vendor', '')}) - {data_type}"
-
 def get_product(row):
     direction = get_data_flow(row)
     return row.get('ob_vendor_name', '') if direction == 'Outbound' else row.get('ib_vendor_name', '')
+
+def get_interface(row):
+    data_type = data_type_map.get(row.get('ib_datatype', ''), '')
+    direction = get_data_flow(row)
+    vendor_name = row.get('ob_vendor_name', '') if direction == 'Outbound' else row.get('ib_vendor_name', '')
+    product = row.get('Vendor', '')
+    return f"{vendor_name} ({product}) - {data_type}"
 
 def get_connection_type(row):
     ob = str(row.get('ob_product_name', '')).lower()
@@ -92,12 +88,16 @@ def clean_facility_name(filename):
     base = base.replace('-InterfaceMigrationReport', '')
     return base.replace('_', ' ').replace('-', ' ').strip()
 
+def extract_cocid_from_filename(filename):
+    return os.path.basename(filename).split('_')[0]
+
 # =====================
 # 🧩 Main Processing Function
 # =====================
 def process_facility(input_csv_path):
     filename = os.path.basename(input_csv_path)
     facility_name = clean_facility_name(filename)
+    cocid = extract_cocid_from_filename(filename)
     print(f"Processing {facility_name}...")
 
     df = pd.read_csv(input_csv_path)
@@ -118,8 +118,8 @@ def process_facility(input_csv_path):
         'State': "Contracting in Progress",
         'Facility': facility_name,
         'Facility Type': get_facility_type(facility_name),
-        'COCID': facility_cocid_map.get(facility_name, ''),
-        'HCIS': '',
+        'COCID': cocid,
+        'HCIS': default_hcis,
         'Division': division,
         'Product': df.apply(get_product, axis=1),
         'Connection Type': df.apply(get_connection_type, axis=1),
@@ -144,8 +144,8 @@ def process_facility(input_csv_path):
             'State': "1. Contracting In Progress",
             'Facility': facility_name,
             'Facility Type': get_facility_type(facility_name),
-            'COCID': facility_cocid_map.get(facility_name, ''),
-            'HCIS': '',
+            'COCID': cocid,
+            'HCIS': default_hcis,
             'Division': division,
             'Product': group['Product'].iloc[0],
             'Connection Type': group['Connection Type'].iloc[0],
