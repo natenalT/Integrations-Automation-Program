@@ -1,6 +1,6 @@
 # =========================================================
-# filter_vendors_v3.0.py
-# Hybrid version combining Matt's logic + your stable design
+# filter_vendors_v3.2.py
+# Updated with Matt’s feedback and edits
 # =========================================================
 
 import pandas as pd
@@ -12,10 +12,10 @@ from openpyxl.styles import Font, Alignment
 # 📁 File Paths
 # =====================
 unfiltered_folder = r'C:\Users\joc4126\Desktop\CSV_File\Unfiltered'
-filtered_folder = r'C:\Users\joc4126\Desktop\CSV_File\Filtered'
-crosswalk_path = r'C:\Users\joc4126\Desktop\CSV_File\CSV_File\Files_To_Import\Data_Type_Crosswalk_Final.xlsx'
-faciliy_path = r'C:\Users\joc4126\Desktop\CSV_File\CSV_File\Files_To_Import\Locations.xlsx'
-connection_path = r'C:\Users\joc4126\Desktop\CSV_File\CSV_File\Files_To_Import\Connection_Type_Crosswalk.xlsx'
+filtered_folder = r'C:\Users\joc4126\Desktop\CSV_File\Filtered_V3.0'
+crosswalk_path = r'C:\Users\joc4126\Desktop\CSV_File\Files_To_Import\Data_Type_Crosswalk_Final.xlsx'
+connection_path = r'C:\Users\joc4126\Desktop\CSV_File\Files_To_Import\Connection_Type_Crosswalk.xlsx'
+location_path = r'C:\Users\joc4126\Desktop\CSV_File\Files_To_Import\Locations.xlsx'
 
 os.makedirs(filtered_folder, exist_ok=True)
 
@@ -23,24 +23,26 @@ os.makedirs(filtered_folder, exist_ok=True)
 # 📖 Read reference files
 # =====================
 crosswalk_df = pd.read_excel(crosswalk_path, usecols="A:F")
-facility_df = pd.read_excel(faciliy_path, usecols="B:C")
 connection_df = pd.read_excel(connection_path, usecols="A:C")
+#location_df = pd.read_excel(location_path, usecols="B:C")  # For COCID Implementation Later
 
 crosswalk_df.columns = crosswalk_df.columns.str.strip()
-facility_df.columns = facility_df.columns.str.strip()
 connection_df.columns = connection_df.columns.str.strip()
+#location_df.columns = location_df.columns.str.strip()  # For COCID Implementation Later
 
 # Mapping dictionaries
-message_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 4]))  # Col E
-data_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 5]))     # Col F
+message_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 4]))   # Col E
+data_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 5]))      # Col F
 expanse_mnemonic_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 2]))  # Col C
 
-facility_cocid_map = dict(zip(facility_df.iloc[:, 0], facility_df.iloc[:, 1]))  # Col B->C
 connection_type_map = dict(zip(connection_df.iloc[:, 0], connection_df.iloc[:, 1]))  # Col A->B
 contract_map = dict(zip(connection_df.iloc[:, 0], connection_df.iloc[:, 2]))         # Col A->C
 
+#cocid_map = dict(zip(location_df.iloc[:, 1], location_df.iloc[:, 2]))    # For COCID Implementation Later # Col B-> C
+
 wave_iteration = "Wave 2D"
 division = "Gulf Coast Division"
+default_hcis = "Meditech Expanse"
 
 # =====================
 # 🧠 Helper Functions
@@ -48,39 +50,61 @@ division = "Gulf Coast Division"
 def get_data_flow(row):
     ib = str(row.get('ib_product_name', ''))
     ob = str(row.get('ob_product_name', ''))
-
-    if 'HCA 5.6' in ob or 'MPF-Patient Folder/HPF Facility' in ob:
+    if 'HCA 5.6' in 'HPF Facility' ob:
         return "Inbound"
-    elif 'HCA 5.6' in ib:
+    elif 'HCA 5.6' or in ib:
         return "Outbound"
-    return "Inbound"
+    else:
+        return "CHECK THIS ROW"
+
+def get_product(row):
+#    direction = get_data_flow(row)
+#    if direction == 'Outbound':
+#        return row.get('ob_vendor_name', '') or row.get('Vendor', '')
+#    return row.get('ib_vendor_name', '') or row.get('Vendor', '')
+
+    direction = get_data_flow(row)
+    product_name = row.get('Vendor', '')
+    
+    if direction == 'Outbound':
+        vendor = row.get('ob_vendor_name', '')
+    else
+        vendor = row.get('ib_vendor_name', '')
+    
+    return f"{vendor} ({product_name})"
 
 def get_interface(row):
     data_type = data_type_map.get(row.get('ib_datatype', ''), '')
-    direction = get_data_flow(row)
-    if direction == 'Outbound':
-        return f"{row.get('ob_vendor_name', '')} ({row.get('Vendor', '')}) - {data_type}"
-    else:
-        return f"{row.get('ib_vendor_name', '')} ({row.get('Vendor', '')}) - {data_type}"
-
-def get_product(row):
-    direction = get_data_flow(row)
-    return row.get('ob_vendor_name', '') if direction == 'Outbound' else row.get('ib_vendor_name', '')
+    vendor_name = get_product(row)
+    
+    return f"{vendor_name}-{data_type}" 
 
 def get_connection_type(row):
-    ob = str(row.get('ob_product_name', '')).lower()
-    ib = str(row.get('ib_product_name', '')).lower()
-    combined = f"{ob} {ib}"
-    if "kafka" in combined:
-        return "Kafka"
-    elif "waterpark" in combined:
-        return "Waterpark"
-    return "Cloverleaf"
+    #combined = f"{str(row.get('ob_product_name', '')).lower()} {str(row.get('ib_product_name', '')).lower()}"
+    #if "kafka" in combined:
+    #    return "Kafka"
+    #if "waterpark" in combined:
+    #    return "Waterpark"
+    #return "Cloverleaf"
+    direction = get_data_flow(row)
+    prod_check = row.get('Vendor', "")
+    connection_check = connection_type_map.get(row['Product'])
+
+    if direction == 'Outbound':
+        vend_check = row.get('ob_vendor_name', "")
+    else
+        vend_check = row.get('ib_vendor_name', "")
+
+    if vend_check in connection_check or prod_check in connection_check:
+        return connection_type_map.get(row['Connection_Type'])
+    else:
+        return "CHECK THIS ROW ALSO"
+
 
 def get_facility_type(facility_name):
     if "Imaging" in facility_name:
         return "Imaging Center"
-    elif "Oncology" in facility_name or "Cancer" in facility_name:
+    if "Oncology" in facility_name or "Cancer" in facility_name:
         return "Oncology Clinic"
     return "Acute"
 
@@ -92,15 +116,23 @@ def clean_facility_name(filename):
     base = base.replace('-InterfaceMigrationReport', '')
     return base.replace('_', ' ').replace('-', ' ').strip()
 
+def extract_cocid_from_filename(filename):
+    return os.path.basename(filename).split('_')[0]
+
 # =====================
 # 🧩 Main Processing Function
 # =====================
 def process_facility(input_csv_path):
     filename = os.path.basename(input_csv_path)
     facility_name = clean_facility_name(filename)
+    cocid = extract_cocid_from_filename(filename)
     print(f"Processing {facility_name}...")
 
     df = pd.read_csv(input_csv_path)
+    if df.empty:
+        print(f"⚠️ Skipped {facility_name}: empty file.")
+        return
+
     possible_cols = ['ob_product_name', 'ib_product_name', 'Vendor', 'ib_vendor_name', 'ob_vendor_name', 'ib_datatype', 'ob_datatype']
     cols_for_dedup = [c for c in possible_cols if c in df.columns]
     if cols_for_dedup:
@@ -118,8 +150,8 @@ def process_facility(input_csv_path):
         'State': "Contracting in Progress",
         'Facility': facility_name,
         'Facility Type': get_facility_type(facility_name),
-        'COCID': facility_cocid_map.get(facility_name, ''),
-        'HCIS': '',
+        'COCID': cocid,
+        'HCIS': default_hcis,
         'Division': division,
         'Product': df.apply(get_product, axis=1),
         'Connection Type': df.apply(get_connection_type, axis=1),
@@ -129,42 +161,44 @@ def process_facility(input_csv_path):
         'Data Type': df['ib_datatype'].map(data_type_map)
     }).dropna(subset=['Title 1', 'Title 2'])
 
-    filtered_df = filtered_df.sort_values(by=['Title 1', 'Title 2'], ascending=[True, True])
+    # Sort alphabetically by product then interface
+    filtered_df = filtered_df.sort_values(by=['Title 1', 'Title 2'])
 
+    # Add bold product header rows
     output_rows = []
-    for product, group in filtered_df.groupby(['Title 1', 'Title 2'], sort=False):
-        vendor_row = {
+    for (title1, title2), group in filtered_df.groupby(['Title 1', 'Title 2'], sort=False):
+        product_row = {
             'Iteration Path': f"Integration-Tracker\\{wave_iteration}",
             'Area Path': f"Integration-Tracker\\{division}",
             'Work Item Type': 'Product',
             'Contract Ownership': '',
             'Product Owner': '',
-            'Title 1': product,
+            'Title 1': title1,
             'Title 2': '',
             'State': "1. Contracting In Progress",
             'Facility': facility_name,
             'Facility Type': get_facility_type(facility_name),
-            'COCID': facility_cocid_map.get(facility_name, ''),
-            'HCIS': '',
+            'COCID': cocid,
+            'HCIS': default_hcis,
             'Division': division,
-            'Product': group['Product'].iloc[0],
+            'Product': title1,
             'Connection Type': group['Connection Type'].iloc[0],
             'Data Flow Direction': '',
             'Expanse Interface Mnemonic': '',
             'Message Type': '',
             'Data Type': ''
         }
-        output_rows.append(vendor_row)
+        output_rows.append(product_row)
         for _, row in group.iterrows():
-            row_copy = row.copy()
-            row_copy['Title 1'] = ''
-            output_rows.append(row_copy)
+            r = row.copy()
+            r['Title 1'] = ''
+            output_rows.append(r)
 
     final_df = pd.DataFrame(output_rows)
-
-    output_excel_path = os.path.join(filtered_folder, f"{facility_name.replace(' ', '_')}.xlsx")
+    output_excel_path = os.path.join(filtered_folder, f"{cocid}_{facility_name.replace(' ', '_')}.xlsx")
     final_df.to_excel(output_excel_path, index=False)
 
+    # Apply bold styling to header rows
     wb = load_workbook(output_excel_path)
     ws = wb.active
     bold_font = Font(bold=True)
@@ -177,7 +211,7 @@ def process_facility(input_csv_path):
                 ws.cell(row, col).alignment = center_align
 
     wb.save(output_excel_path)
-    print(f"✅ {facility_name} exported successfully.")
+    print(f"✅ {facility_name} exported successfully.\n")
 
 # =====================
 # 🚀 Main Runner
