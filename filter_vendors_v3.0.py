@@ -166,33 +166,38 @@ def process_facility(input_csv_path):
 
     # Add bold product header rows
     output_rows = []
+    string_match = ''
+    x = 0
     for (title1, title2), group in filtered_df.groupby(['Title 1', 'Title 2'], sort=False):
-        product_row = {
-            'Iteration Path': f"Integration-Tracker\\{wave_iteration}",
-            'Area Path': f"Integration-Tracker\\{division}",
-            'Work Item Type': 'Product',
-            'Contract Ownership': '',
-            'Product Owner': '',
-            'Title 1': title1,
-            'Title 2': '',
-            'State': "1. Contracting In Progress",
-            'Facility': facility_name,
-            'Facility Type': get_facility_type(facility_name),
-            'COCID': cocid,
-            'HCIS': default_hcis,
-            'Division': division,
-            'Product': title1,
-            'Connection Type': group['Connection Type'].iloc[0],
-            'Data Flow Direction': '',
-            'Expanse Interface Mnemonic': '',
-            'Message Type': '',
-            'Data Type': ''
-        }
-        output_rows.append(product_row)
-        for _, row in group.iterrows():
-            r = row.copy()
-            r['Title 1'] = ''
-            output_rows.append(r)
+        if string_match != title2[0:x]:
+            product_row = {
+                'Iteration Path': f"Integration-Tracker\\{wave_iteration}",
+                'Area Path': f"Integration-Tracker\\{division}",
+                'Work Item Type': 'Product',
+                'Contract Ownership': '',
+                'Product Owner': '',
+                'Title 1': title1,
+                'Title 2': '',
+                'State': "1. Contracting In Progress",
+                'Facility': facility_name,
+                'Facility Type': get_facility_type(facility_name),
+                'COCID': cocid,
+                'HCIS': default_hcis,
+                'Division': division,
+                'Product': title1,
+                'Connection Type': group['Connection Type'].iloc[0],
+                'Data Flow Direction': '',
+                'Expanse Interface Mnemonic': '',
+                'Message Type': '',
+                'Data Type': ''
+            }
+            output_rows.append(product_row)
+            for _, row in group.iterrows():
+                r = row.copy()
+                x = len(title1)-1
+                string_match = title1[0:x]
+                r['Title 1'] = ''
+                output_rows.append(r)
 
     final_df = pd.DataFrame(output_rows)
     output_excel_path = os.path.join(filtered_folder, f"{cocid}_{facility_name.replace(' ', '_')}.xlsx")
