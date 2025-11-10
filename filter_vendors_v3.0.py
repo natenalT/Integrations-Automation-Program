@@ -192,10 +192,11 @@ def process_facility(input_csv_path):
                 'Data Type': ''
             }
             output_rows.append(product_row)
+            
+            x = len(title1)-1
+            string_match = title1[0:x]
             for _, row in group.iterrows():
                 r = row.copy()
-                x = len(title1)-1
-                string_match = title1[0:x]
                 r['Title 1'] = ''
                 output_rows.append(r)
 
