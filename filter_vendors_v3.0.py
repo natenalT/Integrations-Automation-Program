@@ -39,6 +39,7 @@ crosswalk_df = crosswalk_df.drop(index=[18, 20], errors='ignore')
 message_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 4]))  # Column E
 data_type_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 5]))     # Column F
 expanse_mnemonic_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc[:, 2]))  # Column C
+#expanse_mnemonic_direction_map = dict(zip(crosswalk_df.iloc[:, 0], crosswalk_df.iloc [:,3])) # Column D
 
 connection_type_map = dict(zip(connection_df.iloc[:, 0], connection_df.iloc[:, 1]))  # Col A->B
 contract_map = dict(zip(connection_df.iloc[:, 0], connection_df.iloc[:, 2]))         # Col A->C
@@ -137,6 +138,12 @@ def get_connection_type(row):
     if not connection_type:
         connection_type = "Cloverleaf"
     return connection_type
+
+#def get_expanse_interface_mnemonic(row):
+#    direction = get_data_flow(row)
+#    
+#    if direction == 'Outbound':
+        
 
 
 def get_facility_type(facility_name):
