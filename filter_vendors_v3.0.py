@@ -120,7 +120,12 @@ def get_interface(row):
     """
     data_type = data_type_map.get(row.get('ib_datatype', ''), '')
     vendor_product = get_product(row)
-    return f"{vendor_product}-{data_type}"
+
+    if data_type == '':
+        data_type = row.get('ib_datatype', '')
+        return f"{vendor_product}-{data_type}"
+    else:
+        return f"{vendor_product}-{data_type}"
 
 def get_connection_type(row):
     """
